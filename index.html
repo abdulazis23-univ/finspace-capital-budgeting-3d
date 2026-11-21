@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinVerse 3D — Simulasi VR &amp; GenAI Capital Budgeting</title>
+<style>
+  :root {
+    --bg: #0b1120;
+    --panel: #111827;
+    --border: #1e293b;
+    --primary: #38bdf8;
+    --accent: #10b981;
+    --danger: #f43f5e;
+    --warn: #f59e0b;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+  header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .badge { background: rgba(56,189,248,0.15); color: var(--primary); border: 1px solid var(--primary); padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+  .timer { font-size: 13px; color: var(--muted); }
+  main { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; padding: 16px 24px; flex: 1; }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+
+  /* 3D Virtual Viewport */
+  .viewport-card {
+    background: radial-gradient(circle at 50% 30%, #1e293b 0%, #090d16 100%);
+    border: 1px solid var(--border); border-radius: 12px; position: relative;
+    display: flex; flex-direction: column; justify-content: space-between; min-height: 460px; overflow: hidden;
+  }
+  .vp-top { padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
+  .vp-controls { display: flex; gap: 8px; }
+  .btn-sm {
+    background: rgba(15,23,42,0.85); color: var(--text); border: 1px solid #334155;
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s;
+  }
+  .btn-sm:hover, .btn-sm.active { border-color: var(--primary); color: var(--primary); }
+
+  /* Interactive 3D Isometric Stage */
+  .stage-3d {
+    flex: 1; display: flex; align-items: flex-end; justify-content: center;
+    perspective: 900px; padding: 30px 20px 55px 20px; position: relative; cursor: grab;
+  }
+  .floor-grid {
+    display: flex; align-items: flex-end; gap: 22px;
+    transform-style: preserve-3d; transform: rotateX(18deg) rotateY(-14deg);
+    transition: transform 0.35s ease;
+    padding: 24px 32px; border-bottom: 3px solid #334155;
+    background: linear-gradient(180deg, transparent 70%, rgba(56,189,248,0.08) 100%);
+    border-radius: 12px;
+  }
+  .pillar-group {
+    display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative;
+  }
+  .pillar-group:hover .pillar-bar { filter: brightness(1.2); transform: translateY(-4px); }
+  .pillar-val { font-size: 11px; font-weight: 700; margin-bottom: 6px; color: var(--text); text-align: center; }
+  .pillar-bar {
+    width: 46px; border-radius: 6px 6px 0 0; transition: height 0.3s ease, background 0.3s ease, transform 0.2s;
+    box-shadow: 8px -4px 0 rgba(0,0,0,0.35); position: relative;
+  }
+  .pillar-pv {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(255,255,255,0.28); border-top: 2px dashed #ffffff;
+    transition: height 0.3s ease;
+  }
+  .pillar-label { margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .hotspot-dot {
+    width: 12px; height: 12px; background: var(--warn); border: 2px solid #fff;
+    border-radius: 50%; position: absolute; top: -18px; animation: pulse 1.6s infinite;
+  }
+  @keyframes pulse { 0% { transform: scale(0.95); opacity: 1; } 70% { transform: scale(1.35); opacity: 0.4; } 100% { transform: scale(0.95); opacity: 1; } }
+
+  .inspector-banner {
+    background: rgba(15, 23, 42, 0.92); border-top: 1px solid var(--border);
+    padding: 12px 18px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+
+  /* Right Control & GenAI Panel */
+  .side-panel { display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .card h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+  /* GenAI Scenario Box */
+  .ai-box { background: #0f172a; border: 1px solid #1e3a8a; border-radius: 8px; padding: 12px; font-size: 13px; line-height: 1.5; }
+  .btn-ai {
+    background: linear-gradient(135deg, #0284c7, #2563eb); color: #fff; border: none;
+    padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12.5px; margin-top: 10px; width: 100%;
+  }
+  .btn-ai:hover { opacity: 0.92; }
+
+  /* Sliders */
+  .slider-row { margin-bottom: 12px; }
+  .slider-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  input[type="range"] { width: 100%; accent-color: var(--primary); cursor: pointer; }
+
+  /* KPI Metrics */
+  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .kpi { background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+  .kpi-title { font-size: 11px; color: var(--muted); }
+  .kpi-num { font-size: 15px; font-weight: 700; margin-top: 3px; }
+
+  /* Decision Console */
+  .decision-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .btn-accept { background: var(--accent); color: #052e16; font-weight: 700; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
+  .btn-reject { background: var(--danger); color: #fff; font-weight: 700; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
+  .feedback-box { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="badge">WebVR 3D + GenAI Lab</span>
+    <strong>FinVerse 3D: Evaluasi Investasi Modal (Capital Budgeting)</strong>
+  </div>
+  <div class="timer">S1 Manajemen — Universitas Sapta Mandiri | Estimasi Sesi: <strong>15–20 Menit</strong></div>
+</header>
+
+<main>
+  <!-- Left: 3D VR Cash Flow Visualization -->
+  <section class="viewport-card">
+    <div class="vp-top">
+      <div>
+        <div style="font-size:13px; font-weight:700;">Ruang Visualisasi Arus Kas 3D (Titik Interaksi 1)</div>
+        <div style="font-size:11.5px; color:var(--muted);">Klik setiap pilar tahun untuk menginspeksi efek pendiskontoan (PV vs Nominal)</div>
+      </div>
+      <div class="vp-controls">
+        <button class="btn-sm active" onclick="setAngle(18, -14, this)">Sudut Isometrik</button>
+        <button class="btn-sm" onclick="setAngle(5, 0, this)">Tampak Depan</button>
+        <button class="btn-sm" onclick="setAngle(28, 22, this)">Sudut Atas</button>
+      </div>
+    </div>
+
+    <div class="stage-3d">
+      <div class="floor-grid" id="floorGrid"></div>
+    </div>
+
+    <div class="inspector-banner" id="inspectorText">
+      <span><strong>Inspektor Objek 3D:</strong> Klik salah satu pilar arus kas (Thn 0 s.d. Thn 5) untuk melihat rincian nilai sekarang (<em>Present Value</em>).</span>
+      <span class="badge" id="statusBadge">Status: Menunggu Analisis</span>
+    </div>
+  </section>
+
+  <!-- Right: GenAI Scenario + Interactive Sliders + Decision -->
+  <section class="side-panel">
+    <!-- Hotspot 3: GenAI Scenario Generator -->
+    <div class="card">
+      <h2><span>1. Generator Skenario Bisnis (GenAI)</span> <span style="font-size:11px; color:var(--warn);">Titik Interaksi 3</span></h2>
+      <div class="ai-box" id="aiScenarioBox">
+        <strong id="caseTitle">Kasus #1: Ekspansi Lini Produksi Otomasi PT Nusantara Manufaktur</strong>
+        <p id="caseDesc" style="margin-top:5px; color:#cbd5e1;">Perusahaan mempertimbangkan pembelian mesin produksi baru dengan umur ekonomis 5 tahun. Biaya modal perusahaan (WACC) saat ini berada pada kisaran 12%. Uji sensitivitas arus kas sebelum mengambil keputusan.</p>
+      </div>
+      <button class="btn-ai" onclick="generateAIScenario()">✨ Generate Variasi Kasus &amp; Stress-Test Baru (GenAI)</button>
+    </div>
+
+    <!-- Hotspot 2: Live Parameter Manipulation -->
+    <div class="card">
+      <h2><span>2. Manipulasi Variabel Keuangan</span> <span style="font-size:11px; color:var(--warn);">Titik Interaksi 2</span></h2>
+      <div class="slider-row">
+        <div class="slider-header"><span>Investasi Awal (Initial Outlay)</span><strong id="lblOutlay">Rp 1.000 Juta</strong></div>
+        <input type="range" id="rngOutlay" min="500" max="2000" step="50" value="1000" oninput="recalculate()">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header"><span>Tingkat Diskonto (WACC)</span><strong id="lblWacc">12%</strong></div>
+        <input type="range" id="rngWacc" min="4" max="25" step="1" value="12" oninput="recalculate()">
+      </div>
+      <div class="slider-row" style="margin-bottom:4px;">
+        <div class="slider-header"><span>Arus Kas Masuk Dasar (Tahun 1)</span><strong id="lblCf">Rp 320 Juta</strong></div>
+        <input type="range" id="rngCf" min="150" max="600" step="10" value="320" oninput="recalculate()">
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-title">Net Present Value (NPV)</div>
+          <div class="kpi-num" id="kpiNpv">Rp 0 Jt</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-title">Est. IRR</div>
+          <div class="kpi-num" id="kpiIrr">0.0%</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-title">Profitability Index</div>
+          <div class="kpi-num" id="kpiPi">0.00x</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hotspot 4: Decision Console & GenAI Evaluation -->
+    <div class="card">
+      <h2><span>3. Konsol Keputusan &amp; Evaluasi GenAI</span> <span style="font-size:11px; color:var(--warn);">Titik Interaksi 4</span></h2>
+      <div style="font-size:12.5px; color:var(--muted);">Berdasarkan visualisasi pilar 3D dan indikator NPV/IRR di atas, apa keputusan manajerial Anda?</div>
+      <div class="decision-btns">
+        <button class="btn-accept" onclick="submitDecision(true)">✔ TERIMA PROYEK</button>
+        <button class="btn-reject" onclick="submitDecision(false)">✖ TOLAK PROYEK</button>
+      </div>
+      <div class="feedback-box" id="aiFeedback"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const scenarios = [
+    {
+      title: "Kasus #1: Ekspansi Lini Produksi Otomasi PT Nusantara Manufaktur",
+      desc: "Perusahaan mempertimbangkan pembelian mesin otomatis berumur ekonomis 5 tahun. Biaya modal (WACC) saat ini 12%. Uji apakah arus kas masuk mampu menutupi biaya investasi awal.",
+      outlay: 1000, wacc: 12, cf: 320, growth: 0.05
+    },
+    {
+      title: "Kasus #2 (GenAI Stress-Test): Pembukaan Hub Logistik Ritel Kaltim",
+      desc: "Kenaikan suku bunga acuan mendorong WACC naik menjadi 16%. Sementara itu, permintaan logistik diproyeksikan tumbuh 8% per tahun. Evaluasi kelayakan proyek di tengah tingginya biaya modal!",
+      outlay: 1400, wacc: 16, cf: 390, growth: 0.08
+    },
+    {
+      title: "Kasus #3 (GenAI): Investasi Panel Surya & Efisiensi Energi Pabrik",
+      desc: "Proyek energi hijau mendapatkan insentif bunga rendah (WACC 8%) dengan investasi awal Rp 850 Juta, namun penghematan arus kas tahunan relatif konservatif. Tentukan kelayakannya.",
+      outlay: 850, wacc: 8, cf: 230, growth: 0.03
+    },
+    {
+      title: "Kasus #4 (GenAI): Akuisisi Platform Digital & Sistem ERP",
+      desc: "Investasi teknologi sebesar Rp 1.200 Juta dengan risiko usang cepat sehingga perusahaan mensyaratkan WACC tinggi sebesar 18%. Apakah NPV tetap positif?",
+      outlay: 1200, wacc: 18, cf: 350, growth: 0.04
+    }
+  ];
+
+  let currentIdx = 0;
+  let currentGrowth = 0.05;
+  let latestNpv = 0;
+  let latestIrr = 0;
+
+  function setAngle(rx, ry, btn) {
+    document.getElementById('floorGrid').style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    document.querySelectorAll('.vp-controls .btn-sm').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function generateAIScenario() {
+    currentIdx = (currentIdx + 1) % scenarios.length;
+    const s = scenarios[currentIdx];
+    document.getElementById('caseTitle').textContent = s.title;
+    document.getElementById('caseDesc').textContent = s.desc;
+    document.getElementById('rngOutlay').value = s.outlay;
+    document.getElementById('rngWacc').value = s.wacc;
+    document.getElementById('rngCf').value = s.cf;
+    currentGrowth = s.growth;
+    document.getElementById('aiFeedback').style.display = 'none';
+    recalculate();
+  }
+
+  function calcIRR(cashFlows) {
+    let low = -0.5, high = 1.5;
+    for (let i = 0; i < 60; i++) {
+      let mid = (low + high) / 2;
+      let npv = cashFlows.reduce((acc, cf, t) => acc + cf / Math.pow(1 + mid, t), 0);
+      if (npv > 0) low = mid; else high = mid;
+    }
+    return ((low + high) / 2) * 100;
+  }
+
+  function recalculate() {
+    const outlay = parseFloat(document.getElementById('rngOutlay').value);
+    const wacc = parseFloat(document.getElementById('rngWacc').value) / 100;
+    const baseCf = parseFloat(document.getElementById('rngCf').value);
+
+    document.getElementById('lblOutlay').textContent = `Rp ${outlay.toLocaleString('id-ID')} Juta`;
+    document.getElementById('lblWacc').textContent = `${(wacc * 100).toFixed(0)}%`;
+    document.getElementById('lblCf').textContent = `Rp ${baseCf.toLocaleString('id-ID')} Juta`;
+
+    const cashFlows = [-outlay];
+    let pvInflows = 0;
+    const grid = document.getElementById('floorGrid');
+    grid.innerHTML = '';
+
+    for (let t = 0; t <= 5; t++) {
+      let nominal = t === 0 ? -outlay : baseCf * Math.pow(1 + currentGrowth, t - 1);
+      if (t > 0) cashFlows.push(nominal);
+      let pv = nominal / Math.pow(1 + wacc, t);
+      if (t > 0) pvInflows += pv;
+
+      const absNom = Math.abs(nominal);
+      const absPv = Math.abs(pv);
+      const maxScale = 2000;
+      const barH = Math.max(28, Math.min(220, (absNom / maxScale) * 240));
+      const pvRatio = absNom > 0 ? (absPv / absNom) * 100 : 100;
+
+      const group = document.createElement('div');
+      group.className = 'pillar-group';
+      group.innerHTML = `
+        ${t === 0 || t === 5 ? '<div class="hotspot-dot"></div>' : ''}
+        <div class="pillar-val">${t === 0 ? '-' : '+'}Rp ${Math.round(absPv)} Jt</div>
+        <div class="pillar-bar" style="height:${barH}px; background:${t === 0 ? '#f43f5e' : '#0284c7'};">
+          <div class="pillar-pv" style="height:${pvRatio}%;"></div>
+        </div>
+        <div class="pillar-label">Thn ${t}</div>
+      `;
+      group.onclick = () => {
+        document.getElementById('inspectorText').innerHTML = `
+          <span><strong>Inspeksi Tahun ke-${t}:</strong> Arus Kas Nominal = <strong>Rp ${nominal.toFixed(1)} Juta</strong> | Nilai Sekarang (PV @ ${(wacc*100).toFixed(0)}%) = <strong>Rp ${pv.toFixed(1)} Juta</strong> (Faktor Diskonto: ${(1/Math.pow(1+wacc,t)).toFixed(3)}).</span>
+          <span class="badge">Objek Diinspeksi</span>
+        `;
+      };
+      grid.appendChild(group);
+    }
+
+    latestNpv = pvInflows - outlay;
+    latestIrr = calcIRR(cashFlows);
+    const pi = pvInflows / outlay;
+
+    const npvEl = document.getElementById('kpiNpv');
+    npvEl.textContent = `${latestNpv >= 0 ? '+' : ''}Rp ${latestNpv.toFixed(1)} Jt`;
+    npvEl.style.color = latestNpv >= 0 ? '#10b981' : '#f43f5e';
+
+    const irrEl = document.getElementById('kpiIrr');
+    irrEl.textContent = `${latestIrr.toFixed(1)}%`;
+    irrEl.style.color = latestIrr >= (wacc * 100) ? '#10b981' : '#f43f5e';
+
+    document.getElementById('kpiPi').textContent = `${pi.toFixed(2)}x`;
+    const badge = document.getElementById('statusBadge');
+    badge.textContent = latestNpv >= 0 ? 'Indikator: Layak (NPV > 0)' : 'Indikator: Tidak Layak (NPV < 0)';
+    badge.style.color = latestNpv >= 0 ? '#10b981' : '#f43f5e';
+    badge.style.borderColor = latestNpv >= 0 ? '#10b981' : '#f43f5e';
+  }
+
+  function submitDecision(accepted) {
+    const isFeasible = latestNpv > 0;
+    const fb = document.getElementById('aiFeedback');
+    fb.style.display = 'block';
+
+    if (accepted === isFeasible) {
+      fb.style.background = 'rgba(16, 185, 129, 0.14)';
+      fb.style.border = '1px solid #10b981';
+      fb.innerHTML = `<strong>Evaluasi GenAI — Keputusan Tepat!</strong><br>
+      Anda memilih untuk <strong>${accepted ? 'MENERIMA' : 'MENOLAK'}</strong> proyek. Analisis kuantitatif menunjukkan NPV sebesar <strong>Rp ${latestNpv.toFixed(1)} Juta</strong> dan IRR <strong>${latestIrr.toFixed(1)}%</strong> dibandingkan WACC. Keputusan ini konsisten dengan prinsip memaksimalkan kekayaan pemegang saham.`;
+    } else {
+      fb.style.background = 'rgba(244, 63, 94, 0.14)';
+      fb.style.border = '1px solid #f43f5e';
+      fb.innerHTML = `<strong>Evaluasi GenAI — Perlu Tinjauan Ulang!</strong><br>
+      Anda memilih <strong>${accepted ? 'MENERIMA' : 'MENOLAK'}</strong> proyek, padahal nilai NPV saat ini adalah <strong>Rp ${latestNpv.toFixed(1)} Juta</strong> (IRR ${latestIrr.toFixed(1)}%). ${isFeasible ? 'Proyek menghasilkan nilai tambah positif sehingga seharusnya diterima.' : 'Arus kas terdiskonto tidak mampu menutup investasi awal sehingga akan menurunkan nilai perusahaan.'}`;
+    }
+  }
+
+  recalculate();
+</script>
+</body>
+</html>
